@@ -1,101 +1,100 @@
-import Image from "next/image";
+'use client';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { useSocket } from '@/hooks/useSocket';
+import { Message } from '@/types';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { format } from 'date-fns';
+
+const CONNECTION_COUNT_UPDATED_CHANNEL = 'chat:connection-count-updated';
+const NEW_MESSAGE_CHANNEL = 'chat:new-message';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const socket = useSocket();
+  const messagesContainerRef = useRef<HTMLOListElement | null>(null);
+  const [newMessage, setNewMessage] = useState<string>('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [connectionCount, setConnectionCount] = useState<number>(0);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+  const scrollToBottom = () => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight;
+    }
+  };
+
+  useEffect(() => {
+    socket?.on('connect', () => {
+      console.log('Connected to socket');
+    });
+
+    socket?.on(NEW_MESSAGE_CHANNEL, (message: Message) => {
+      setMessages((prev) => [...prev, message]);
+    });
+
+    socket?.on(
+      CONNECTION_COUNT_UPDATED_CHANNEL,
+      ({ count }: { count: number }) => {
+        setConnectionCount(count);
+      }
+    );
+  }, [socket]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+
+    socket?.emit(NEW_MESSAGE_CHANNEL, {
+      message: newMessage,
+    });
+    setNewMessage('');
+  };
+
+  return (
+    <div className='relative h-[100vh] p-20'>
+      <div className='min-w-80 absolute h-[70vh] left-[50%] top-[50%] -translate-x-[50%] -translate-y-[50%] flex flex-col gap-3'>
+        <h1 className='text-4xl font-bold  text-center'>
+          Chat ({connectionCount})
+        </h1>
+        <ol
+          ref={messagesContainerRef}
+          className='flex-1 border overflow-y-auto  bg-gray-50 rounded p-5 '
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+          {messages.map((message) => {
+            return (
+              <li
+                className='bg-gray-200 w-fit m-1 p-2 rounded break-all'
+                key={message.id}
+              >
+                <div className='flex gap-2 items-center mb-2'>
+                  <p className='text-xs text-gray-500'>
+                    {format(
+                      new Date(message.createdAt),
+                      'MMM dd, yyyy - hh:mm a'
+                    )}
+                  </p>
+                  <p className='text-sm text-blue-600 font-medium'>
+                    {message.port}
+                  </p>
+                </div>
+                <p className='text-gray-800'>{message.message}</p>
+              </li>
+            );
+          })}
+        </ol>
+        <form className='flex gap-3 items-center' onSubmit={handleSubmit}>
+          <Textarea
+            placeholder='spill the tea marites...'
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            maxLength={255}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          <Button>Send</Button>
+        </form>
+      </div>
     </div>
   );
 }
